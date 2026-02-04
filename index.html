@@ -2,189 +2,173 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Snake Mobile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Game</title>
 
 <style>
 body{
  margin:0;
- background:#0b0b0b;
+ background:#111827;
  color:white;
+ font-family:sans-serif;
  text-align:center;
- font-family:Arial;
- overflow:hidden;
 }
 
-h2{color:#00ff99;margin:6px;}
-#score{font-size:20px;}
+h1{margin:10px}
 
 canvas{
- background:#000;
- border-radius:16px;
- box-shadow:0 0 20px #00ff99;
- display:block;
- margin:6px auto;
+ background:#020617;
+ border:2px solid #38bdf8;
 }
 
-#controls{
- position:fixed;
- bottom:8px;
- width:100%;
+.controls{
+ margin-top:14px;
+ display:grid;
+ grid-template-columns:80px 80px 80px;
+ grid-template-rows:80px 80px 80px;
+ gap:6px;
+ justify-content:center;
 }
 
-#controls button{
- font-size:44px;
- margin:8px;
- padding:26px 34px;
- border-radius:22px;
- border:none;
- background:#00c853;
+.controls button{
+ width:80px;
+ height:80px;
+ font-size:36px;
+ font-weight:bold;
+ border-radius:6px;
+ background:#6b7280;
  color:white;
+ border:3px solid #374151;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ box-shadow:0 4px #111827;
 }
 
-#controls button:active{
- background:#009624;
+.controls button:active{
+ transform:translateY(4px);
+ box-shadow:0 0 #111827;
 }
 
-#gameOver{
+#over{
  position:fixed;
  inset:0;
- background:rgba(0,0,0,0.85);
+ background:rgba(0,0,0,.7);
  display:none;
- flex-direction:column;
- justify-content:center;
  align-items:center;
- font-size:38px;
+ justify-content:center;
+ flex-direction:column;
 }
 
-#gameOver button{
- background:#ff5252;
- border:none;
- padding:18px 34px;
- border-radius:20px;
- font-size:24px;
- margin-top:20px;
- color:white;
+#over button{
+ margin-top:15px;
+ font-size:22px;
+ padding:12px 26px;
 }
+
 </style>
 </head>
 
 <body>
-<h2>🐍 Rắn là bạn,ko phải tôi</h2>
-<div id="score">Điểm: 0</div>
+
+<h1>🐍Rắn là bn,ko phải tôi</h1>
 <canvas id="game"></canvas>
 
-<div id="controls">
-<button onclick="setDir('up')">⬆</button><br>
-<button onclick="setDir('left')">⬅</button>
-<button onclick="setDir('down')">⬇</button>
-<button onclick="setDir('right')">➡</button>
+<div class="controls">
+  <div></div>
+  <button onclick="setDir(0,-1)">▲</button>
+  <div></div>
+
+  <button onclick="setDir(-1,0)">◀</button>
+  <div></div>
+  <button onclick="setDir(1,0)">▶</button>
+
+  <div></div>
+  <button onclick="setDir(0,1)">▼</button>
+  <div></div>
 </div>
 
-<div id="gameOver">
-💀 THUA THÌ NÍN
-<button onclick="restart()">🔄 Chơi lại</button>
+<div id="over">
+<h2>Thua rồi kìa gà quá-))</h2>
+<button onclick="start()">Chơi lại</button>
 </div>
 
-<audio id="eat" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.wav"></audio>
-<audio id="bgm" src="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3" loop></audio>
-<audio id="over" src="https://assets.mixkit.co/sfx/preview/mixkit-player-losing-or-failing-2042.wav"></audio>
+<audio id="eat" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+<audio id="dead" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 
 <script>
 const c=document.getElementById("game");
 const ctx=c.getContext("2d");
+const eat=document.getElementById("eat");
+const dead=document.getElementById("dead");
+
+let size=12;
+let snake,food,dx,dy,over=false;
 
 function resize(){
- c.width = window.innerWidth - 10;
- c.height = window.innerHeight - 260;
+ let side=Math.min(window.innerWidth-20, window.innerHeight-260);
+ c.width=Math.floor(side/size)*size;
+ c.height=c.width;
 }
+window.onresize=resize;
 resize();
-window.onresize = resize;
 
-let size = 20;
-let snake = [{x:100,y:100}];
-let food = randomFood();
-let dir = null;
-let game = null;
-let score = 0;
-
-function randomFood(){
+function rand(){
  return {
   x:Math.floor(Math.random()*(c.width/size))*size,
   y:Math.floor(Math.random()*(c.height/size))*size
- };
+ }
 }
 
 function start(){
- if(!game) game=setInterval(loop,110);
+ snake=[{x:size*4,y:size*4}];
+ dx=size; dy=0;
+ food=rand();
+ over=false;
+ document.getElementById("over").style.display="none";
+}
+start();
 
- let bgm=document.getElementById("bgm");
- bgm.volume=0.5;
- bgm.play().catch(()=>{});
+function setDir(x,y){
+ if(over) return;
+ if(dx===-x*size && dy===-y*size) return;
+ dx=x*size;
+ dy=y*size;
 }
 
-function setDir(d){
- dir=d;
- start();
+function hit(h){
+ return snake.some((p,i)=>i&&p.x===h.x&&p.y===h.y);
 }
 
 function loop(){
- if(!dir) return;
+ if(over) return;
 
- let h={...snake[0]};
- if(dir=="up") h.y-=size;
- if(dir=="down") h.y+=size;
- if(dir=="left") h.x-=size;
- if(dir=="right") h.x+=size;
+ let h={x:snake[0].x+dx,y:snake[0].y+dy};
 
- if(h.x<0||h.y<0||h.x>=c.width||h.y>=c.height){
-  gameOver();
+ if(h.x<0||h.y<0||h.x>=c.width||h.y>=c.height||hit(h)){
+  over=true;
+  dead.play();
+  document.getElementById("over").style.display="flex";
   return;
  }
 
  snake.unshift(h);
 
- if(h.x==food.x && h.y==food.y){
-  score++;
-  document.getElementById("score").innerText="Điểm: "+score;
-
-  let eat=document.getElementById("eat");
-  eat.currentTime=0;
+ if(h.x===food.x&&h.y===food.y){
   eat.play();
-
-  food=randomFood();
+  food=rand();
  } else snake.pop();
 
  ctx.clearRect(0,0,c.width,c.height);
 
- ctx.fillStyle="red";
- ctx.fillRect(food.x,food.y,size,size);
-
- ctx.fillStyle="lime";
+ ctx.fillStyle="#22c55e";
  snake.forEach(p=>ctx.fillRect(p.x,p.y,size,size));
+
+ ctx.fillStyle="#f97316";
+ ctx.fillRect(food.x,food.y,size,size);
 }
 
-function gameOver(){
- clearInterval(game);
- game=null;
-
- document.getElementById("bgm").pause();
-
- let over=document.getElementById("over");
- over.currentTime=0;
- over.play();
-
- document.getElementById("gameOver").style.display="flex";
-}
-
-function restart(){
- snake=[{x:100,y:100}];
- food=randomFood();
- dir=null;
- score=0;
- document.getElementById("score").innerText="Điểm: 0";
- document.getElementById("gameOver").style.display="none";
-}
+setInterval(loop,120);
 </script>
 </body>
 </html>
-
