@@ -3,163 +3,189 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Snake Game Pro</title>
+<title>Snake Game</title>
+
 <style>
 body{
-    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    color:white;
-    font-family:Arial;
-    text-align:center;
+ margin:0;
+ background:#0b0b0b;
+ color:white;
+ text-align:center;
+ font-family:Arial;
+ overflow:hidden;
 }
-#game{
-    background:black;
-    border-radius:15px;
-    box-shadow:0 0 20px #00ff99;
-    display:block;
-    margin:auto;
+
+h2{color:#00ff99;margin:8px;}
+#score{font-size:22px;}
+
+canvas{
+ background:#000;
+ border-radius:16px;
+ box-shadow:0 0 25px #00ff99;
+ display:block;
+ margin:10px auto;
 }
-#score{
-    font-size:22px;
-    margin:10px;
+
+#controls{
+ position:fixed;
+ bottom:20px;
+ width:100%;
 }
-.controls{
-    margin-top:15px;
+
+#controls button{
+ font-size:32px;
+ margin:6px;
+ padding:18px 24px;
+ border-radius:18px;
+ border:none;
+ background:#00c853;
+ color:white;
 }
-.controls button{
-    width:65px;
-    height:65px;
-    font-size:30px;
-    border:none;
-    border-radius:15px;
-    background:#00ff99;
-    margin:5px;
+
+#controls button:active{background:#009624;}
+
+#gameOver{
+ position:fixed;
+ top:0;
+ left:0;
+ width:100%;
+ height:100%;
+ background:rgba(0,0,0,0.85);
+ display:none;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ font-size:42px;
 }
-.controls button:active{
-    transform:scale(0.9);
-}
-.restart{
-    margin-top:10px;
-    padding:10px 20px;
-    font-size:18px;
-    border:none;
-    border-radius:12px;
-    background:#ffd166;
+
+#gameOver button{
+ background:#ff5252;
+ border:none;
+ padding:18px 36px;
+ border-radius:20px;
+ font-size:26px;
+ color:white;
+ margin-top:20px;
 }
 </style>
 </head>
 
 <body>
-<h1>🐍Rắn là bạn,ko phải tôi</h1>
+<h2>🐍 Rắn là bn,ko phải tôi</h2>
 <div id="score">Điểm: 0</div>
+<canvas id="game"></canvas>
 
-<canvas id="game" width="400" height="400"></canvas>
-
-<div class="controls">
-    <div>
-        <button onclick="setDir('UP')">⬆</button>
-    </div>
-    <div>
-        <button onclick="setDir('LEFT')">⬅</button>
-        <button onclick="setDir('DOWN')">⬇</button>
-        <button onclick="setDir('RIGHT')">➡</button>
-    </div>
+<div id="controls">
+<button onclick="setDir('up')">⬆</button><br>
+<button onclick="setDir('left')">⬅</button>
+<button onclick="setDir('down')">⬇</button>
+<button onclick="setDir('right')">➡</button>
 </div>
 
-<button class="restart" onclick="restart()">🔁 Chơi lại</button>
+<div id="gameOver">
+💀 THUA THÌ NÍN
+<button onclick="restart()">🔄 Chơi lại</button>
+</div>
+
+<audio id="eat" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.wav"></audio>
+<audio id="bgm" src="https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3" loop></audio>
+<audio id="over" src="https://assets.mixkit.co/sfx/preview/mixkit-player-losing-or-failing-2042.wav"></audio>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const box = 20;
+const c=document.getElementById("game");
+const ctx=c.getContext("2d");
 
-let snake, food, dir, score, loop;
-
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-const audioCtx = new AudioCtx();
-
-function beep(f){
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g);
-    g.connect(audioCtx.destination);
-    o.frequency.value = f;
-    o.start();
-    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
-    o.stop(audioCtx.currentTime + 0.15);
+function resize(){
+ c.width=window.innerWidth;
+ c.height=window.innerHeight-220;
 }
+resize();
+window.onresize=resize;
+
+let size=20;
+let snake=[{x:100,y:100}];
+let food=randomFood();
+let dir=null;
+let game=null;
+let score=0;
 
 function randomFood(){
-    return {
-        x: Math.floor(Math.random()*19)*box,
-        y: Math.floor(Math.random()*19)*box
-    }
+ return{
+  x:Math.floor(Math.random()*(c.width/size))*size,
+  y:Math.floor(Math.random()*(c.height/size))*size
+ }
 }
 
 function start(){
-    snake=[{x:9*box,y:10*box}];
-    food=randomFood();
-    dir="";
-    score=0;
-    document.getElementById("score").innerText="Điểm: 0";
-    clearInterval(loop);
-    loop=setInterval(draw,120);
-}
+ if(!game) game=setInterval(loop,110);
 
-function restart(){ start(); }
+ let bgm=document.getElementById("bgm");
+ bgm.volume=0.5;
+ bgm.play().catch(()=>{});
+}
 
 function setDir(d){
-    if(d==="LEFT" && dir!=="RIGHT") dir=d;
-    if(d==="RIGHT" && dir!=="LEFT") dir=d;
-    if(d==="UP" && dir!=="DOWN") dir=d;
-    if(d==="DOWN" && dir!=="UP") dir=d;
+ dir=d;
+ start();
 }
 
-document.addEventListener("keydown", e=>{
-    if(e.key==="ArrowLeft") setDir("LEFT");
-    if(e.key==="ArrowRight") setDir("RIGHT");
-    if(e.key==="ArrowUp") setDir("UP");
-    if(e.key==="ArrowDown") setDir("DOWN");
-});
+function loop(){
+ if(!dir) return;
 
-function draw(){
-    ctx.fillStyle="black";
-    ctx.fillRect(0,0,400,400);
+ let h={...snake[0]};
+ if(dir=="up") h.y-=size;
+ if(dir=="down") h.y+=size;
+ if(dir=="left") h.x-=size;
+ if(dir=="right") h.x+=size;
 
-    for(let i=0;i<snake.length;i++){
-        ctx.fillStyle = i===0 ? "#00ff99" : "#00cc66";
-        ctx.fillRect(snake[i].x, snake[i].y, box, box);
-    }
+ if(h.x<0||h.y<0||h.x>=c.width||h.y>=c.height){
+  gameOver();
+  return;
+ }
 
-    ctx.fillStyle="red";
-    ctx.fillRect(food.x, food.y, box, box);
+ snake.unshift(h);
 
-    let headX = snake[0].x;
-    let headY = snake[0].y;
+ if(h.x==food.x && h.y==food.y){
+  score++;
+  document.getElementById("score").innerText="Điểm: "+score;
 
-    if(dir==="LEFT") headX -= box;
-    if(dir==="RIGHT") headX += box;
-    if(dir==="UP") headY -= box;
-    if(dir==="DOWN") headY += box;
+  let eat=document.getElementById("eat");
+  eat.currentTime=0;
+  eat.play();
 
-    if(headX===food.x && headY===food.y){
-        score++;
-        beep(700);
-        document.getElementById("score").innerText="Điểm: "+score;
-        food=randomFood();
-    } else {
-        snake.pop();
-    }
+  food=randomFood();
+ }else snake.pop();
 
-    if(headX<0||headY<0||headX>=400||headY>=400){
-        beep(200);
-        clearInterval(loop);
-        alert("Game Over! Điểm: "+score);
-    }
+ ctx.clearRect(0,0,c.width,c.height);
 
-    snake.unshift({x:headX,y:headY});
+ ctx.fillStyle="red";
+ ctx.fillRect(food.x,food.y,size,size);
+
+ ctx.fillStyle="lime";
+ snake.forEach(p=>ctx.fillRect(p.x,p.y,size,size));
 }
 
-start();
+function gameOver(){
+ clearInterval(game);
+ game=null;
+
+ document.getElementById("bgm").pause();
+
+ let over=document.getElementById("over");
+ over.currentTime=0;
+ over.play();
+
+ document.getElementById("gameOver").style.display="flex";
+}
+
+function restart(){
+ snake=[{x:100,y:100}];
+ food=randomFood();
+ dir=null;
+ score=0;
+ document.getElementById("score").innerText="Điểm: 0";
+ document.getElementById("gameOver").style.display="none";
+}
 </script>
 </body>
 </html>
